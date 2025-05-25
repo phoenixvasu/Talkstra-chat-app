@@ -13,6 +13,9 @@ dotenv.config();
 const PORT = process.env.PORT || 3000;
 const __dirname = path.resolve();
 
+// Connect to MongoDB
+connectDB();
+
 app.use(express.json());
 app.use(cookieParser());
 app.use(
@@ -25,6 +28,11 @@ app.use(
   })
 );
 
+// Health check endpoint
+app.get("/api/health", (req, res) => {
+  res.status(200).json({ status: "ok", message: "Server is running" });
+});
+
 app.use("/api/auth", authRoutes);
 app.use("/api/messages", messageRoutes);
 
@@ -35,11 +43,10 @@ if (process.env.NODE_ENV === "production") {
   });
 }
 
-// For Vercel serverless functions
+// For local development
 if (process.env.NODE_ENV !== "production") {
   server.listen(PORT, () => {
     console.log("Server is running on port: " + PORT);
-    connectDB();
   });
 }
 
