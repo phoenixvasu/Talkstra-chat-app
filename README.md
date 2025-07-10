@@ -1,16 +1,15 @@
 # Talkstra - Real-Time MERN Chat App
 
-A modern, production-grade real-time chat application built with the MERN stack, Socket.io, TailwindCSS, and DaisyUI. Features WhatsApp-style UI/UX, private and group chats, emoji reactions, read receipts, and robust authentication.
+A modern, production-grade real-time chat application built with the MERN stack, Socket.io, TailwindCSS, and DaisyUI. Features WhatsApp-style UI/UX, private and group chats, emoji reactions, robust authentication, and real-time updates.
 
 ---
 
 ## 🚀 Features
 
 - **Real-Time Messaging:** Instant private and group chat with Socket.io.
-- **WhatsApp-Style UI/UX:** Modern, responsive, and visually appealing interface with read receipts, reactions, and message bubbles.
+- **WhatsApp-Style UI/UX:** Modern, responsive, and visually appealing interface with reactions and message bubbles.
 - **Group Chats:** Create, join, and manage group conversations with admin controls.
-- **Emoji Reactions:** React to messages with emojis, see who reacted, and remove your reaction (horizontal bar, WhatsApp-style).
-- **Read Receipts:** See when your messages are delivered and read (✓, ✓✓ blue), with group "Seen by X" logic.
+- **Emoji Reactions:** React to messages with emojis, see who reacted, and remove your reaction (horizontal bar, WhatsApp-style, never cut off).
 - **Authentication:** JWT-based login/register, secure session management, protected routes.
 - **User Presence:** Online status indicators, show who is online in sidebar.
 - **Profile Avatars:** User and group avatars, with fallback images.
@@ -19,21 +18,18 @@ A modern, production-grade real-time chat application built with the MERN stack,
 - **Mobile Responsive:** Fully responsive for desktop and mobile.
 - **Modern Tech Stack:** MERN, Zustand, TailwindCSS, DaisyUI, Socket.io, Cloudinary.
 - **Optimistic UI Updates:** Instant feedback for sent messages and reactions.
-- **State Consistency:** Robust handling of stale/deleted messages and race conditions.
+- **State Consistency:** Robust handling of deleted messages and race conditions.
 - **Accessibility:** Keyboard navigation, focus states, ARIA labels.
 
 ---
 
 ## 🛡️ Key Fixes & Robustness
 
-- **Race Condition Handling:** Defensive checks and versioning prevent markAsRead and reactions from running on stale or invalid messages, eliminating “Message not found” errors.
-- **Stale/Invalid Message IDs:** If a message is deleted on the backend, it is also removed from the frontend state, and no further actions are attempted on it.
-- **Consistent State:** addReaction and removeReaction remove stale messages from state on 404, ensuring frontend-backend consistency.
-- **Unified Effects:** markAsRead effect is unified and guarded by a version/ref system, preventing overlap or race conditions during rapid chat/group switching.
+- **Race Condition Handling:** Defensive checks and versioning prevent reactions from running on stale or invalid messages, eliminating “Message not found” errors.
+- **Consistent State:** addReaction and removeReaction never remove messages from state on error, ensuring frontend-backend consistency.
 - **Optimistic UI:** Message sending and reactions are reflected instantly, with backend confirmation syncing state.
-- **Socket Robustness:** Socket handlers always update messages by stringified \_id, and reaction updates are emitted to both sender and receiver.
-- **Error Handling:** Toasts for 404s are suppressed, and stale messages are only removed from state when truly not found.
-- **Logging:** State setters and message array updates are logged for easier debugging.
+- **Socket Robustness:** Socket handlers always update messages by stringified \_id, and reaction updates are emitted to both sender and receiver (all devices/tabs).
+- **Error Handling:** Toasts for 404s are suppressed, and only truly stale messages are removed from state.
 
 ---
 
@@ -123,10 +119,10 @@ VITE_API_URL=http://localhost:5001/api
 ### **Frontend**
 
 - **State Management:** Zustand for chat, user, and group state.
-- **Socket.io:** Real-time events for messages, reactions, read receipts, and presence.
-- **UI/UX:** WhatsApp-style message bubbles, reactions bar, read receipts, avatars, and responsive design.
+- **Socket.io:** Real-time events for messages, reactions, and presence.
+- **UI/UX:** WhatsApp-style message bubbles, reactions bar, avatars, and responsive design.
 - **Components:**
-  - `ChatContainer`: Main chat view, message list, reactions, read receipts.
+  - `ChatContainer`: Main chat view, message list, reactions.
   - `Sidebar`: User and group list, online status, group creation.
   - `MessageInput`: Send text/images, emoji picker.
   - `ChatHeader`: Chat/group info, member management.
@@ -134,11 +130,11 @@ VITE_API_URL=http://localhost:5001/api
 
 ### **Backend**
 
-- **REST API:** Express routes for users, messages, groups, reactions, and read receipts.
-- **Socket.io:** Real-time messaging, reactions, and read receipt events.
+- **REST API:** Express routes for users, messages, groups, reactions.
+- **Socket.io:** Real-time messaging and reaction events.
 - **MongoDB Models:**
   - `User`: Auth, profile, online status.
-  - `Message`: Text, image, sender, receiver/group, reactions, readBy.
+  - `Message`: Text, image, sender, receiver/group, reactions.
   - `Group`: Name, members, admins.
 - **Authentication:** JWT, HTTP-only cookies, protected routes.
 - **File Uploads:** Cloudinary for image attachments.
@@ -147,13 +143,11 @@ VITE_API_URL=http://localhost:5001/api
 
 ## 💡 UI/UX Details & Features
 
-- **WhatsApp-Style Read Receipts:**
-  - ✓ for delivered, ✓✓ blue for seen, shown just below the last message you sent.
-  - Group: "Seen by X" below your last message.
-- **Reactions:**
+- **WhatsApp-Style Reactions:**
   - Horizontal emoji bar below each message, always visible if reactions exist, appears on hover otherwise.
   - Tooltip shows who reacted.
   - Add/remove your reaction with a click.
+  - Reaction bar and picker are never cut off, always visible for both left and right aligned messages.
 - **Message Bubbles:**
   - Sent: Primary color, right-aligned. Received: Neutral color, left-aligned.
   - Subtle shadow, rounded corners, timestamp inside bubble.
@@ -196,7 +190,7 @@ VITE_API_URL=http://localhost:5001/api
 - **Q: Messages or reactions not updating in real-time?**
   - A: Ensure both backend and frontend are running, and sockets are connected. Restart the backend after any socket-related code changes.
 - **Q: Seeing 404 errors or "Message not found" toasts?**
-  - A: The app now suppresses 404 toasts and removes only truly stale messages from state. If you see persistent issues, clear your local state and refresh.
+  - A: The app now suppresses 404 toasts and never removes messages from state on reaction errors. If you see persistent issues, clear your local state and refresh.
 - **Q: Optimistic UI not syncing with backend?**
   - A: Check your API and socket logs. The app uses robust syncing, but network issues may cause temporary mismatches.
 - **Q: How to add analytics or logging?**

@@ -58,34 +58,25 @@ export const useChatStore = create((set, get) => ({
     }
   },
 
-  subscribeToMessages: async (userId) => {
-    const { selectedUser } = get();
-    if (!selectedUser) return;
+  // Remove subscribeToMessages and unSubscribeToMessages logic for private chat
+  // Add global setupPrivateSocketListeners
+  setupPrivateSocketListeners: () => {
     const socket = useAuthStore.getState().socket;
-    socket.on("newMessage", (newMessage) => {
-      set({ messages: [...get().messages, newMessage] });
-    });
-    socket.on("reactionUpdate", (updatedMessage) => {
-      set((state) => ({
-        messages: state.messages.map((m) =>
-          String(m._id) === String(updatedMessage._id) ? updatedMessage : m
-        ),
-      }));
-    });
-    socket.on("readReceiptUpdate", (updatedMessage) => {
-      set((state) => ({
-        messages: state.messages.map((m) =>
-          String(m._id) === String(updatedMessage._id) ? updatedMessage : m
-        ),
-      }));
-    });
-  },
-
-  unSubscribeToMessages: () => {
-    const socket = useAuthStore.getState().socket;
-    socket.off("newMessage");
-    socket.off("reactionUpdate");
-    socket.off("readReceiptUpdate");
+    if (!socket) return;
+    // Handler for newMessage
+    const handleNewMessage = (newMessage) => {
+      const { selectedUser } = get();
+      if (
+        selectedUser &&
+        (newMessage.senderId === selectedUser._id ||
+          newMessage.receiverId === selectedUser._id)
+      ) {
+        set((state) => ({
+          messages: [...state.messages, newMessage],
+        }));
+      }
+    };
+    socket.on("newMessage", handleNewMessage);
   },
 
   setSelectedUser: (selectedUser) => {
@@ -142,36 +133,9 @@ export const useChatStore = create((set, get) => ({
     }
   },
 
-  subscribeToGroupMessages: (groupId) => {
-    const socket = useAuthStore.getState().socket;
-    socket.emit("joinGroup", groupId);
-    socket.on("newGroupMessage", (newMessage) => {
-      if (newMessage.groupId !== groupId) return;
-      set({ groupMessages: [...get().groupMessages, newMessage] });
-    });
-    socket.on("reactionUpdate", (updatedMessage) => {
-      set((state) => ({
-        groupMessages: state.groupMessages.map((m) =>
-          String(m._id) === String(updatedMessage._id) ? updatedMessage : m
-        ),
-      }));
-    });
-    socket.on("readReceiptUpdate", (updatedMessage) => {
-      set((state) => ({
-        groupMessages: state.groupMessages.map((m) =>
-          String(m._id) === String(updatedMessage._id) ? updatedMessage : m
-        ),
-      }));
-    });
-  },
-
-  unSubscribeToGroupMessages: (groupId) => {
-    const socket = useAuthStore.getState().socket;
-    socket.emit("leaveGroup", groupId);
-    socket.off("newGroupMessage");
-    socket.off("reactionUpdate");
-    socket.off("readReceiptUpdate");
-  },
+  // No-ops: group room joining is handled globally
+  subscribeToGroupMessages: () => {},
+  unSubscribeToGroupMessages: () => {},
 
   setSelectedGroup: (group) => {
     console.log("[setSelectedGroup] called with:", group);
@@ -215,6 +179,7 @@ export const useChatStore = create((set, get) => ({
   },
 
   addReaction: async (messageId, emoji, isGroup, groupId, receiverId) => {
+    messageId = String(messageId);
     const socket = useAuthStore.getState().socket;
     try {
       const res = await axiosInstance.post(`/messages/${messageId}/reactions`, {
@@ -224,38 +189,24 @@ export const useChatStore = create((set, get) => ({
       if (isGroup) {
         set((state) => ({
           groupMessages: state.groupMessages.map((m) =>
-            m._id === messageId ? res.data : m
+            String(m._id) === messageId ? res.data : m
           ),
         }));
         socket.emit("addReaction", { message: res.data, groupId });
       } else {
         set((state) => ({
           messages: state.messages.map((m) =>
-            m._id === messageId ? res.data : m
+            String(m._id) === messageId ? res.data : m
           ),
         }));
         socket.emit("addReaction", { message: res.data, receiverId });
       }
     } catch (error) {
-      if (error.response?.status === 404) {
-        // Remove the stale message from state, do not show a toast
-        if (isGroup) {
-          set((state) => ({
-            groupMessages: state.groupMessages.filter(
-              (m) => m._id !== messageId
-            ),
-          }));
-        } else {
-          set((state) => ({
-            messages: state.messages.filter((m) => m._id !== messageId),
-          }));
-        }
-      } else {
-        toast.error(error.response?.data?.message || "Error adding reaction");
-      }
+      toast.error(error.response?.data?.message || "Error adding reaction");
     }
   },
   removeReaction: async (messageId, isGroup, groupId, receiverId) => {
+    messageId = String(messageId);
     const socket = useAuthStore.getState().socket;
     try {
       const res = await axiosInstance.delete(
@@ -264,63 +215,73 @@ export const useChatStore = create((set, get) => ({
       if (isGroup) {
         set((state) => ({
           groupMessages: state.groupMessages.map((m) =>
-            m._id === messageId ? res.data : m
+            String(m._id) === messageId ? res.data : m
           ),
         }));
         socket.emit("removeReaction", { message: res.data, groupId });
       } else {
         set((state) => ({
           messages: state.messages.map((m) =>
-            m._id === messageId ? res.data : m
+            String(m._id) === messageId ? res.data : m
           ),
         }));
         socket.emit("removeReaction", { message: res.data, receiverId });
       }
     } catch (error) {
-      if (error.response?.status === 404) {
-        // Remove the stale message from state, do not show a toast
-        if (isGroup) {
-          set((state) => ({
-            groupMessages: state.groupMessages.filter(
-              (m) => m._id !== messageId
-            ),
-          }));
-        } else {
-          set((state) => ({
-            messages: state.messages.filter((m) => m._id !== messageId),
-          }));
-        }
-      } else {
-        toast.error(error.response?.data?.message || "Error removing reaction");
-      }
+      toast.error(error.response?.data?.message || "Error removing reaction");
     }
   },
-  markAsRead: async (messageId, isGroup, groupId, receiverId) => {
+  setupGroupSocketListeners: () => {
     const socket = useAuthStore.getState().socket;
-    try {
-      const res = await axiosInstance.post(`/messages/${messageId}/read`);
-      if (isGroup) {
+    if (!socket) return;
+    // groupUpdate: update or remove group
+    const handleGroupUpdate = (group) => {
+      if (group.removed) {
         set((state) => ({
-          groupMessages: state.groupMessages.map((m) =>
-            m._id === messageId ? res.data : m
-          ),
+          groups: state.groups.filter((g) => g._id !== group._id),
+          selectedGroup:
+            state.selectedGroup && state.selectedGroup._id === group._id
+              ? null
+              : state.selectedGroup,
         }));
-        socket.emit("readReceipt", { message: res.data, groupId });
       } else {
         set((state) => ({
-          messages: state.messages.map((m) =>
-            m._id === messageId ? res.data : m
-          ),
+          groups: state.groups.some((g) => g._id === group._id)
+            ? state.groups.map((g) => (g._id === group._id ? group : g))
+            : [...state.groups, group],
+          selectedGroup:
+            state.selectedGroup && state.selectedGroup._id === group._id
+              ? group
+              : state.selectedGroup,
         }));
-        socket.emit("readReceipt", { message: res.data, receiverId });
       }
-    } catch (error) {
-      if (error.response?.status === 404) {
-        // Do NOT remove the message from state on 404
-      } else {
-        console.error("[markAsRead] Error:", error);
-        toast.error(error.response?.data?.message || "Error marking as read");
-      }
-    }
+    };
+    // groupDeleted: remove group
+    const handleGroupDeleted = ({ _id }) => {
+      set((state) => ({
+        groups: state.groups.filter((g) => g._id !== _id),
+        selectedGroup:
+          state.selectedGroup && state.selectedGroup._id === _id
+            ? null
+            : state.selectedGroup,
+      }));
+    };
+    socket.on("groupUpdate", handleGroupUpdate);
+    socket.on("groupDeleted", handleGroupDeleted);
+  },
+  setupReactionSocketListeners: () => {
+    const socket = useAuthStore.getState().socket;
+    if (!socket) return;
+    const handleReactionUpdate = (updatedMessage) => {
+      set((state) => ({
+        messages: state.messages.map((m) =>
+          String(m._id) === String(updatedMessage._id) ? updatedMessage : m
+        ),
+        groupMessages: state.groupMessages.map((m) =>
+          String(m._id) === String(updatedMessage._id) ? updatedMessage : m
+        ),
+      }));
+    };
+    socket.on("reactionUpdate", handleReactionUpdate);
   },
 }));

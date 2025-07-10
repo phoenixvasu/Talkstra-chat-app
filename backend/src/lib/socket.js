@@ -45,8 +45,9 @@ io.on("connection", (socket) => {
     if (groupId) {
       io.to(groupId).emit("reactionUpdate", message);
     } else if (receiverId) {
+      // Emit to both sender and receiver by userId (robust to multiple tabs/devices)
       const receiverSocketId = getReceiverSocketId(receiverId);
-      const senderSocketId = socket.id;
+      const senderSocketId = getReceiverSocketId(message.senderId);
       if (receiverSocketId)
         io.to(receiverSocketId).emit("reactionUpdate", message);
       if (senderSocketId) io.to(senderSocketId).emit("reactionUpdate", message);
@@ -56,22 +57,12 @@ io.on("connection", (socket) => {
     if (groupId) {
       io.to(groupId).emit("reactionUpdate", message);
     } else if (receiverId) {
+      // Emit to both sender and receiver by userId (robust to multiple tabs/devices)
       const receiverSocketId = getReceiverSocketId(receiverId);
-      const senderSocketId = socket.id;
+      const senderSocketId = getReceiverSocketId(message.senderId);
       if (receiverSocketId)
         io.to(receiverSocketId).emit("reactionUpdate", message);
       if (senderSocketId) io.to(senderSocketId).emit("reactionUpdate", message);
-    }
-  });
-
-  // Real-time read receipts
-  socket.on("readReceipt", ({ message, groupId, receiverId }) => {
-    if (groupId) {
-      io.to(groupId).emit("readReceiptUpdate", message);
-    } else if (receiverId) {
-      const receiverSocketId = getReceiverSocketId(receiverId);
-      if (receiverSocketId)
-        io.to(receiverSocketId).emit("readReceiptUpdate", message);
     }
   });
 
@@ -101,15 +92,6 @@ export function emitReactionToRoom({ message, groupId, receiverId, senderId }) {
     const receiverSocketId = getReceiverSocketId(receiverId);
     if (receiverSocketId)
       io.to(receiverSocketId).emit("reactionUpdate", message);
-  }
-}
-export function emitReadReceiptToRoom({ message, groupId, receiverId }) {
-  if (groupId) {
-    io.to(groupId).emit("readReceiptUpdate", message);
-  } else if (receiverId) {
-    const receiverSocketId = getReceiverSocketId(receiverId);
-    if (receiverSocketId)
-      io.to(receiverSocketId).emit("readReceiptUpdate", message);
   }
 }
 

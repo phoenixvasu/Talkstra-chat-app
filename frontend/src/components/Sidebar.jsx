@@ -17,11 +17,40 @@ const Sidebar = () => {
     const [selectedMembers, setSelectedMembers] = useState([]);
     const [isCreating, setIsCreating] = useState(false);
     const formRef = useRef();
+    const socket = useAuthStore(state => state.socket);
+    const addGroup = group => useChatStore.setState(state => ({
+      groups: [...state.groups, group]
+    }));
 
     useEffect(()=>{
         getUsers();
         getGroups();
     },[getUsers, getGroups]);
+
+    // Setup group socket listeners for robust real-time group membership/deletion
+    useEffect(() => {
+      if (!socket) return;
+      useChatStore.getState().setupGroupSocketListeners();
+      useChatStore.getState().setupPrivateSocketListeners();
+      useChatStore.getState().setupReactionSocketListeners();
+    }, [socket]);
+
+    // Join all group rooms on socket connect or group list change (robust to reconnects)
+    useEffect(() => {
+      if (!socket || !groups.length) return;
+      // Handler to join all groups after socket connects/reconnects
+      const joinAllGroups = () => {
+        groups.forEach(group => {
+          socket.emit("joinGroup", group._id);
+        });
+      };
+      socket.on("connect", joinAllGroups);
+      // Call once in case already connected
+      if (socket.connected) joinAllGroups();
+      return () => {
+        socket.off("connect", joinAllGroups);
+      };
+    }, [socket, groups]);
 
     const filteredUsers = showOnlineOnly ? users.filter((user) => onlineUsers.includes(user._id)) : users;
     if(isUsersLoading || isGroupsLoading) return <SidebarSkeleton/>;

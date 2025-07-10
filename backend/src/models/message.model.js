@@ -39,12 +39,6 @@ const messageSchema = new mongoose.Schema(
       type: String,
     },
     reactions: [reactionSchema],
-    readBy: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
-      },
-    ],
   },
   { timestamps: true }
 );

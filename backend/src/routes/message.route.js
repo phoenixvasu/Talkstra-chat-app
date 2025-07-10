@@ -6,7 +6,6 @@ import {
   sendMessage,
   addReaction,
   removeReaction,
-  markAsRead,
 } from "../controllers/message.controller.js";
 
 const router = express.Router();
@@ -16,8 +15,7 @@ router.get("/:id", protectRoute, getMessages);
 router.post("/send/:id", protectRoute, sendMessage);
 
 // Message reactions and read receipts
-router.post("/:id/reactions", protectRoute, addReaction);
-router.delete("/:id/reactions", protectRoute, removeReaction);
-router.post("/:id/read", protectRoute, markAsRead);
+router.post("/:messageId/reactions", protectRoute, addReaction);
+router.delete("/:messageId/reactions", protectRoute, removeReaction);
 
 export default router;

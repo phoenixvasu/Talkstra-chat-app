@@ -1,12 +1,7 @@
 import User from "../models/user.model.js";
 import Message from "../models/message.model.js";
 import cloudinary from "../lib/cloudinary.js";
-import {
-  getReceiverSocketId,
-  io,
-  emitReactionToRoom,
-  emitReadReceiptToRoom,
-} from "../lib/socket.js";
+import { getReceiverSocketId, io, emitReactionToRoom } from "../lib/socket.js";
 
 export const getUsersForSidebar = async (req, res) => {
   try {
@@ -68,9 +63,12 @@ export const sendMessage = async (req, res) => {
     await newMessage.save();
 
     const receiverSocketId = getReceiverSocketId(receiverId);
-
+    const senderSocketId = getReceiverSocketId(senderId);
     if (receiverSocketId) {
       io.to(receiverSocketId).emit("newMessage", newMessage);
+    }
+    if (senderSocketId) {
+      io.to(senderSocketId).emit("newMessage", newMessage);
     }
     res.status(201).json(newMessage);
   } catch (error) {
@@ -114,9 +112,6 @@ export const addReaction = async (req, res) => {
         userId: r.userId.toString(),
       }));
     }
-    if (msgObj.readBy) {
-      msgObj.readBy = msgObj.readBy.map((id) => id.toString());
-    }
     res.status(200).json(msgObj);
   } catch (error) {
     console.error("Error in addReaction:", error);
@@ -154,38 +149,9 @@ export const removeReaction = async (req, res) => {
         userId: r.userId.toString(),
       }));
     }
-    if (msgObj.readBy) {
-      msgObj.readBy = msgObj.readBy.map((id) => id.toString());
-    }
     res.status(200).json(msgObj);
   } catch (error) {
     console.error("Error in removeReaction:", error);
-    res.status(500).json({ message: "Internal server error" });
-  }
-};
-
-// Mark a message as read
-export const markAsRead = async (req, res) => {
-  try {
-    const { messageId } = req.params;
-    const userId = req.user._id;
-    const message = await Message.findById(messageId);
-    if (!message) return res.status(404).json({ message: "Message not found" });
-    if (
-      !message.readBy.map((id) => id.toString()).includes(userId.toString())
-    ) {
-      message.readBy.push(userId);
-      await message.save();
-      // Emit real-time event
-      emitReadReceiptToRoom({
-        message,
-        groupId: message.groupId,
-        receiverId: message.receiverId,
-      });
-    }
-    res.status(200).json(message);
-  } catch (error) {
-    console.error("Error in markAsRead:", error);
     res.status(500).json({ message: "Internal server error" });
   }
 };
